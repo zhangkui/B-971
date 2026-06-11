@@ -1,0 +1,54 @@
+services:
+  app-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: card-backend
+    ports:
+      - "8000:80"
+    volumes:
+      - ./backend:/var/www/html
+      - /var/www/html/vendor
+    depends_on:
+      - app-db
+    environment:
+      - DB_HOST=app-db
+      - DB_DATABASE=card_db
+      - DB_USERNAME=root
+      - DB_PASSWORD=root
+      - DB_PORT=3306
+    networks:
+      - app-network
+
+  app-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: card-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - app-backend
+    networks:
+      - app-network
+
+  app-db:
+    image: mysql:8.0
+    container_name: card-db
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_DATABASE=card_db
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  db_data:
