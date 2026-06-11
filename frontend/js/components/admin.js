@@ -1,10 +1,12 @@
-// Admin Page Module
 import { api } from '../api.js';
 import { Modal } from './modal.js';
 import { Toast } from './toast.js';
+import { renderCardList, initCardList } from './cardList.js';
 
 const modal = new Modal();
 const toast = new Toast();
+
+let adminSubTab = 'generate';
 
 export function renderAdmin() {
     const userJson = localStorage.getItem('user');
@@ -32,10 +34,31 @@ export function renderAdmin() {
     }
 
     return `
-        <div class="max-w-xl mx-auto animate-fade-in-up">
-            <div class="bg-white dark:bg-gray-800 ring-1 ring-gray-900/5 rounded-lg p-8 shadow-xl">
+        <div class="max-w-6xl mx-auto animate-fade-in-up">
+            <div class="flex justify-center mb-6">
+                <div class="bg-white dark:bg-gray-800 p-1 rounded-xl shadow-lg inline-flex">
+                    <button onclick="switchAdminTab('generate')" id="admin-tab-generate" class="px-6 py-2.5 rounded-lg text-sm font-bold transition-all duration-200 ${adminSubTab === 'generate' ? 'bg-gradient-to-r from-gray-700 to-gray-900 text-white shadow-md' : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-200'}">
+                        卡号生成
+                    </button>
+                    <button onclick="switchAdminTab('list')" id="admin-tab-list" class="px-6 py-2.5 rounded-lg text-sm font-bold transition-all duration-200 ${adminSubTab === 'list' ? 'bg-gradient-to-r from-gray-700 to-gray-900 text-white shadow-md' : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-200'}">
+                        卡密列表
+                    </button>
+                </div>
+            </div>
+
+            <div id="admin-content-area">
+                ${adminSubTab === 'generate' ? renderGeneratePage() : renderCardList()}
+            </div>
+        </div>
+    `;
+}
+
+function renderGeneratePage() {
+    return `
+        <div class="max-w-xl mx-auto">
+            <div class="bg-white dark:bg-gray-800 ring-1 ring-gray-900/5 rounded-2xl p-8 shadow-xl">
                 <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-2xl font-bold text-gray-800 dark:text-white">后台管理 - 卡号生成</h2>
+                    <h2 class="text-2xl font-bold text-gray-800 dark:text-white">卡号生成</h2>
                     <span class="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-bold">管理员</span>
                 </div>
                 
@@ -83,6 +106,30 @@ export function initAdmin() {
 
     if (!user || user.role !== 'admin') return;
 
+    if (adminSubTab === 'generate') {
+        initGeneratePage();
+    } else {
+        initCardList();
+    }
+}
+
+window.switchAdminTab = function(tab) {
+    adminSubTab = tab;
+    const contentArea = document.getElementById('admin-content-area');
+
+    if (tab === 'generate') {
+        contentArea.innerHTML = renderGeneratePage();
+        initGeneratePage();
+    } else {
+        contentArea.innerHTML = renderCardList();
+        initCardList();
+    }
+
+    document.getElementById('admin-tab-generate').className = `px-6 py-2.5 rounded-lg text-sm font-bold transition-all duration-200 ${tab === 'generate' ? 'bg-gradient-to-r from-gray-700 to-gray-900 text-white shadow-md' : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-200'}`;
+    document.getElementById('admin-tab-list').className = `px-6 py-2.5 rounded-lg text-sm font-bold transition-all duration-200 ${tab === 'list' ? 'bg-gradient-to-r from-gray-700 to-gray-900 text-white shadow-md' : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-200'}`;
+};
+
+function initGeneratePage() {
     const generateBtn = document.getElementById('generate-btn');
     const copyBtn = document.getElementById('copy-btn');
     const resultText = document.getElementById('result-text');

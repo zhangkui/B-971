@@ -7,7 +7,7 @@ use App\Database;
 
 // CORS
 header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
 header('Content-Type: application/json');
 
@@ -203,6 +203,149 @@ try {
          ]);
     }
     
+    // Route: GET /api/cards/list (Admin - List cards with filters)
+    if ($method === 'GET' && $uri === '/api/cards/list') {
+        $authUser = getAuthUser($pdo);
+        if (!$authUser || $authUser['role'] !== 'admin') {
+            jsonResponse(['status' => 'error', 'message' => '权限不足 (Admin only)'], 403);
+        }
+
+        $type = $_GET['type'] ?? '';
+        $status = $_GET['status'] ?? '';
+        $createdFrom = $_GET['created_from'] ?? '';
+        $createdTo = $_GET['created_to'] ?? '';
+        $page = max(1, (int)($_GET['page'] ?? 1));
+        $pageSize = max(1, min(100, (int)($_GET['page_size'] ?? 20)));
+
+        $where = ['1=1'];
+        $params = [];
+
+        if (in_array($type, ['monthly', 'xianyu'])) {
+            $where[] = 'c.type = ?';
+            $params[] = $type;
+        }
+        if (in_array($status, ['unused', 'used', 'voided'])) {
+            $where[] = 'c.status = ?';
+            $params[] = $status;
+        }
+        if (!empty($createdFrom)) {
+            $where[] = 'c.created_at >= ?';
+            $params[] = $createdFrom . ' 00:00:00';
+        }
+        if (!empty($createdTo)) {
+            $where[] = 'c.created_at <= ?';
+            $params[] = $createdTo . ' 23:59:59';
+        }
+
+        $whereClause = implode(' AND ', $where);
+
+        $countStmt = $pdo->prepare("SELECT COUNT(*) as total FROM cards c WHERE {$whereClause}");
+        $countStmt->execute($params);
+        $total = (int)$countStmt->fetch()['total'];
+
+        $offset = ($page - 1) * $pageSize;
+        $stmt = $pdo->prepare("SELECT c.id, c.card_no, c.type, c.status, c.created_at, c.used_at, c.voided_at, u.username as used_by_username FROM cards c LEFT JOIN users u ON c.used_by_user_id = u.id WHERE {$whereClause} ORDER BY c.created_at DESC LIMIT {$pageSize} OFFSET {$offset}");
+        $stmt->execute($params);
+        $cards = $stmt->fetchAll();
+
+        jsonResponse([
+            'status' => 'success',
+            'data' => $cards,
+            'pagination' => [
+                'total' => $total,
+                'page' => $page,
+                'page_size' => $pageSize,
+                'total_pages' => ceil($total / $pageSize)
+            ]
+        ]);
+    }
+
+    // Route: POST /api/cards/void (Admin - Void a card)
+    if ($method === 'POST' && $uri === '/api/cards/void') {
+        $authUser = getAuthUser($pdo);
+        if (!$authUser || $authUser['role'] !== 'admin') {
+            jsonResponse(['status' => 'error', 'message' => '权限不足 (Admin only)'], 403);
+        }
+
+        $input = json_decode(file_get_contents('php://input'), true);
+        $cardId = (int)($input['id'] ?? 0);
+
+        if ($cardId <= 0) {
+            jsonResponse(['status' => 'error', 'message' => '无效的卡密ID'], 400);
+        }
+
+        $stmt = $pdo->prepare("SELECT * FROM cards WHERE id = ?");
+        $stmt->execute([$cardId]);
+        $card = $stmt->fetch();
+
+        if (!$card) {
+            jsonResponse(['status' => 'error', 'message' => '卡密不存在'], 404);
+        }
+
+        if ($card['status'] === 'used') {
+            jsonResponse(['status' => 'error', 'message' => '已使用的卡密无法作废'], 400);
+        }
+
+        if ($card['status'] === 'voided') {
+            jsonResponse(['status' => 'error', 'message' => '卡密已经作废'], 400);
+        }
+
+        $pdo->prepare("UPDATE cards SET status = 'voided', voided_at = NOW() WHERE id = ?")->execute([$cardId]);
+        jsonResponse(['status' => 'success', 'message' => '卡密已作废']);
+    }
+
+    // Route: GET /api/cards/export (Admin - Export unused cards)
+    if ($method === 'GET' && $uri === '/api/cards/export') {
+        $authUser = getAuthUser($pdo);
+        if (!$authUser || $authUser['role'] !== 'admin') {
+            jsonResponse(['status' => 'error', 'message' => '权限不足 (Admin only)'], 403);
+        }
+
+        $type = $_GET['type'] ?? '';
+
+        $where = ["c.status = 'unused'"];
+        $params = [];
+
+        if (in_array($type, ['monthly', 'xianyu'])) {
+            $where[] = 'c.type = ?';
+            $params[] = $type;
+        }
+
+        $whereClause = implode(' AND ', $where);
+        $stmt = $pdo->prepare("SELECT c.card_no, c.type, c.created_at FROM cards c WHERE {$whereClause} ORDER BY c.created_at DESC");
+        $stmt->execute($params);
+        $cards = $stmt->fetchAll();
+
+        jsonResponse([
+            'status' => 'success',
+            'data' => $cards
+        ]);
+    }
+
+    // Route: GET /api/user/cards (User - View own card usage history)
+    if ($method === 'GET' && $uri === '/api/user/cards') {
+        $authUser = getAuthUser($pdo);
+        if (!$authUser) {
+            jsonResponse(['status' => 'error', 'message' => '请先登录'], 401);
+        }
+
+        $stmt = $pdo->prepare("SELECT c.card_no, c.type, c.used_at FROM cards c WHERE c.used_by_user_id = ? AND c.status = 'used' ORDER BY c.used_at DESC");
+        $stmt->execute([$authUser['id']]);
+        $cards = $stmt->fetchAll();
+
+        $stmt2 = $pdo->prepare("SELECT id, username, xianyu_balance, monthly_card_expires_at FROM users WHERE id = ?");
+        $stmt2->execute([$authUser['id']]);
+        $userData = $stmt2->fetch();
+
+        jsonResponse([
+            'status' => 'success',
+            'data' => [
+                'user' => $userData,
+                'cards' => $cards
+            ]
+        ]);
+    }
+
     // Default 404
     jsonResponse(['status' => 'error', 'message' => '未找到接口'], 404);
 

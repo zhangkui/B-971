@@ -9,21 +9,20 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Seed Admin User (Password: 123456)
 INSERT IGNORE INTO users (username, password, role) VALUES ('admin', '$2y$10$9ew7AOnjNlk.aB6n35eOI.VcntapoYkwnglM9RHOpVArQfGNnskye', 'admin');
 
 CREATE TABLE IF NOT EXISTS cards (
     id INT AUTO_INCREMENT PRIMARY KEY,
     card_no VARCHAR(255) NOT NULL UNIQUE,
     type ENUM('monthly', 'xianyu') NOT NULL,
-    status ENUM('unused', 'used') NOT NULL DEFAULT 'unused',
+    status ENUM('unused', 'used', 'voided') NOT NULL DEFAULT 'unused',
     used_by_user_id INT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     used_at TIMESTAMP NULL,
+    voided_at TIMESTAMP NULL,
     FOREIGN KEY (used_by_user_id) REFERENCES users(id)
 );
 
--- Seed Data: Monthly Cards
 INSERT IGNORE INTO cards (card_no, type) VALUES 
 ('M-8888-AAAA', 'monthly'),
 ('M-8888-BBBB', 'monthly'),
@@ -31,7 +30,6 @@ INSERT IGNORE INTO cards (card_no, type) VALUES
 ('M-8888-DDDD', 'monthly'),
 ('M-8888-EEEE', 'monthly');
 
--- Seed Data: Xianyu Cards
 INSERT IGNORE INTO cards (card_no, type) VALUES 
 ('X-6666-1111', 'xianyu'),
 ('X-6666-2222', 'xianyu'),

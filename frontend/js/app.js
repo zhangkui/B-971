@@ -2,44 +2,43 @@ import { renderCardInput, initCardInput } from './components/cardInput.js?v=2';
 import { renderPricing, initPricing } from './components/pricing.js?v=2';
 import { renderAdmin, initAdmin } from './components/admin.js?v=2';
 import { renderLogin, initLogin } from './components/login.js?v=2';
+import { renderMyCard, initMyCard } from './components/myCard.js?v=2';
 
 let currentTab = 'redeem';
 let currentUser = null;
 
-// Initialize user from localStorage
 const storedUser = localStorage.getItem('user');
 if (storedUser) {
     currentUser = JSON.parse(storedUser);
 }
 
-// Tab switching function
 window.switchTab = function(tab) {
-    // If not logged in, force login
     if (!currentUser) {
         renderLoginView();
         return;
     }
 
     currentTab = tab;
-    // ... rest of logic
     
-    // Update tab styles
-    const tabs = ['redeem', 'buy', 'admin'];
+    const tabs = ['redeem', 'buy', 'mycard', 'admin'];
     tabs.forEach(t => {
         const btn = document.getElementById(`tab-${t}`);
+        if (!btn) return;
         if (t === tab) {
-            btn.className = 'px-8 py-3 rounded-lg text-sm font-bold transition-all duration-200 bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md';
             if (t === 'buy') {
-                btn.className = 'px-8 py-3 rounded-lg text-sm font-bold transition-all duration-200 bg-gradient-to-r from-yellow-400 to-orange-500 text-white shadow-md';
+                btn.className = 'px-6 py-3 rounded-lg text-sm font-bold transition-all duration-200 bg-gradient-to-r from-yellow-400 to-orange-500 text-white shadow-md';
             } else if (t === 'admin') {
-                btn.className = 'px-8 py-3 rounded-lg text-sm font-bold transition-all duration-200 bg-gradient-to-r from-gray-700 to-gray-900 text-white shadow-md';
+                btn.className = 'px-6 py-3 rounded-lg text-sm font-bold transition-all duration-200 bg-gradient-to-r from-gray-700 to-gray-900 text-white shadow-md';
+            } else if (t === 'mycard') {
+                btn.className = 'px-6 py-3 rounded-lg text-sm font-bold transition-all duration-200 bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md';
+            } else {
+                btn.className = 'px-6 py-3 rounded-lg text-sm font-bold transition-all duration-200 bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md';
             }
         } else {
-            btn.className = 'px-8 py-3 rounded-lg text-sm font-bold transition-all duration-200 text-gray-500 hover:text-gray-900 dark:hover:text-gray-200';
+            btn.className = 'px-6 py-3 rounded-lg text-sm font-bold transition-all duration-200 text-gray-500 hover:text-gray-900 dark:hover:text-gray-200';
         }
     });
     
-    // Render content
     const contentArea = document.getElementById('content-area');
     
     switch(tab) {
@@ -51,6 +50,10 @@ window.switchTab = function(tab) {
             contentArea.innerHTML = renderPricing();
             initPricing();
             break;
+        case 'mycard':
+            contentArea.innerHTML = renderMyCard();
+            initMyCard();
+            break;
         case 'admin':
             contentArea.innerHTML = renderAdmin();
             initAdmin();
@@ -58,7 +61,6 @@ window.switchTab = function(tab) {
     }
 };
 
-// New helper to render login
 function renderLoginView() {
     const contentArea = document.getElementById('content-area');
     contentArea.innerHTML = renderLogin();
@@ -70,7 +72,6 @@ function renderLoginView() {
     });
 }
 
-// New helper to update user info UI
 function updateUserInfo() {
     const userInfo = document.getElementById('user-info');
     if (currentUser) {
@@ -90,14 +91,15 @@ function updateUserInfo() {
     }
 }
 
+window.updateUserInfo = updateUserInfo;
+
 window.logout = function() {
     currentUser = null;
     localStorage.removeItem('user');
     updateUserInfo();
-    switchTab('redeem'); // This will trigger login view
+    switchTab('redeem');
 };
 
-// Initialize app on load
 document.addEventListener('DOMContentLoaded', () => {
     updateUserInfo();
     switchTab('redeem');
