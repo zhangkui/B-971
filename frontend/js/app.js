@@ -7,12 +7,16 @@ import { renderMyCard, initMyCard } from './components/myCard.js?v=2';
 let currentTab = 'redeem';
 let currentUser = null;
 
+window.currentUser = currentUser;
+
 const storedUser = localStorage.getItem('user');
 if (storedUser) {
     currentUser = JSON.parse(storedUser);
+    window.currentUser = currentUser;
 }
 
 window.switchTab = function(tab) {
+    currentUser = window.currentUser;
     if (!currentUser) {
         renderLoginView();
         return;
@@ -66,6 +70,7 @@ function renderLoginView() {
     contentArea.innerHTML = renderLogin();
     initLogin((user) => {
         currentUser = user;
+        window.currentUser = user;
         localStorage.setItem('user', JSON.stringify(user));
         updateUserInfo();
         switchTab('redeem');
@@ -73,6 +78,7 @@ function renderLoginView() {
 }
 
 function updateUserInfo() {
+    currentUser = window.currentUser;
     const userInfo = document.getElementById('user-info');
     if (currentUser) {
         userInfo.innerHTML = `
@@ -95,6 +101,7 @@ window.updateUserInfo = updateUserInfo;
 
 window.logout = function() {
     currentUser = null;
+    window.currentUser = null;
     localStorage.removeItem('user');
     updateUserInfo();
     switchTab('redeem');

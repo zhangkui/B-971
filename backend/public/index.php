@@ -33,8 +33,19 @@ function generateToken() {
 
 // Helper to get authenticated user by token
 function getAuthUser($pdo) {
-    $headers = getallheaders();
-    $authHeader = $headers['Authorization'] ?? $headers['authorization'] ?? '';
+    $authHeader = '';
+    
+    if (function_exists('getallheaders')) {
+        $headers = getallheaders();
+        $authHeader = $headers['Authorization'] ?? $headers['authorization'] ?? '';
+    }
+    
+    if (empty($authHeader)) {
+        $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+    }
+    if (empty($authHeader)) {
+        $authHeader = $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '';
+    }
     
     if (strpos($authHeader, 'Bearer ') !== 0) {
         return null;
@@ -43,7 +54,7 @@ function getAuthUser($pdo) {
     $token = substr($authHeader, 7);
     if (empty($token)) return null;
 
-    $stmt = $pdo->prepare("SELECT id, username, role, xianyu_balance, monthly_card_expires_at FROM users WHERE token = ?");
+    $stmt = $pdo->prepare("SELECT id, username, role, xianyu_balance, monthly_card_expires_at, token FROM users WHERE token = ?");
     $stmt->execute([$token]);
     return $stmt->fetch();
 }
@@ -133,6 +144,10 @@ try {
             jsonResponse(['status' => 'error', 'message' => '卡号已被使用'], 400);
         }
 
+        if ($card['status'] === 'voided') {
+            jsonResponse(['status' => 'error', 'message' => '卡号已作废，无法使用'], 400);
+        }
+
         // Start transaction
         $pdo->beginTransaction();
         try {
@@ -153,7 +168,7 @@ try {
             $pdo->commit();
 
             // Fetch updated user data
-            $userStmt = $pdo->prepare("SELECT id, username, role, xianyu_balance, monthly_card_expires_at FROM users WHERE id = ?");
+            $userStmt = $pdo->prepare("SELECT id, username, role, xianyu_balance, monthly_card_expires_at, token FROM users WHERE id = ?");
             $userStmt->execute([$userId]);
             $userData = $userStmt->fetch();
 

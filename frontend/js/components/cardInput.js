@@ -66,12 +66,20 @@ export function initCardInput() {
                 toast.show(`${response.message}${response.reward}`, 'success');
                 input.value = '';
                 
-                // Update local user data
-                localStorage.setItem('user', JSON.stringify(response.user));
+                const existingUser = JSON.parse(localStorage.getItem('user') || '{}');
+                const updatedUser = {
+                    ...existingUser,
+                    ...response.user,
+                    token: response.user.token || existingUser.token
+                };
+                localStorage.setItem('user', JSON.stringify(updatedUser));
                 
-                // Refresh UI (calls global functions in app.js)
+                if (window.currentUser !== undefined) {
+                    window.currentUser = updatedUser;
+                }
+                
                 if (window.updateUserInfo) window.updateUserInfo();
-                if (window.switchTab) window.switchTab('redeem'); // Re-renders the component
+                if (window.switchTab) window.switchTab('redeem');
             } else {
                 toast.show(response.message || '兑换失败', 'error');
             }
